@@ -100,7 +100,6 @@ class DataAggregationTask(Process):
     def run(self) -> None:
         while True:
             if self.queue.empty():
-                print("Очередь пуста")
                 pd.DataFrame.from_dict(self.df_list).to_excel('forecast_table.xlsx', index=False)  # type: ignore
                 break
             else:
@@ -119,14 +118,13 @@ class DataAnalyzingTask:
         return data
 
     def _calc_rating(self, item: dict) -> int:
-        raiting = []
+        data = []
         for k in [*item]:
             if item[k][0].isalpha():
                 continue
-            raiting.extend(item[k].split('/'))
-        del raiting[0]
-        raiting = list(map(lambda n: float(n), raiting))
-        return int(sum(raiting) / len(raiting))
+            data.extend(item[k].split('/'))
+        data = list(map(lambda n: float(n), data))
+        return int(sum(data) / len(data))
 
     def _add_raiting(self) -> list[dict]:
         result = []

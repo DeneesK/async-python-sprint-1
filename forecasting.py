@@ -1,7 +1,6 @@
 # import logging
 import multiprocessing
 
-from ttm import measure_time
 from api_client import YandexWeatherAPI
 from tasks import (
     DataFetchingTask,
@@ -12,7 +11,6 @@ from tasks import (
 from utils import CITIES, GOOD_CONDITION
 
 
-@measure_time
 def forecast_weather(queue: multiprocessing.Queue):
     """
     Анализ погодных условий по городам
