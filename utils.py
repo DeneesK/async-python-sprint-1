@@ -1,3 +1,14 @@
+from multiprocessing import cpu_count
+
+
+MAX_WKRS = cpu_count() + 4
+
+GOOD_CONDITION = {
+    'clear', 'partly-cloudy', 'cloudy', 'overcast', 'drizzle'
+}
+
+MSG_RCMND_CITIES = 'Recommended city/ies to visit "{}"'
+
 CITIES = {
     "MOSCOW": "https://code.s3.yandex.net/async-module/moscow-response.json",
     "PARIS": "https://code.s3.yandex.net/async-module/paris-response.json",

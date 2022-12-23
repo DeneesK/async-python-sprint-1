@@ -37,10 +37,10 @@ class YandexWeatherAPI:
         except KeyError:
             raise Exception("Please check that city {} exists".format(city_name))
 
-    def get_forecasting(self, city_name: str):
+    def get_forecasting(self, city_name: str) -> tuple:
         """
         :param city_name: key as str
         :return: response data as json
         """
         city_url = self._get_url_by_city_name(city_name)
-        return self._do_req(city_url)
+        return (city_name, self._do_req(city_url))
