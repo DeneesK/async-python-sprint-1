@@ -21,8 +21,8 @@ def forecast_weather():
     """
     logger.info('Forecast Wheather started')
     cities_names = CITIES.keys()
-    ywAPI = YandexWeatherAPI()
-    data_fetch = DataFetchingTask(ywAPI, cities_names)
+    yw_api = YandexWeatherAPI()
+    data_fetch = DataFetchingTask(yw_api, cities_names)
     forecast_data = data_fetch.get_data()
     queue = multiprocessing.Queue()
     try:

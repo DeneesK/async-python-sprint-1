@@ -16,8 +16,8 @@ from models import (WheatherForecastModel, CityForecastModel)  # noqa
 @pytest.fixture
 def data_fetch():
     def wrapper(cities):
-        ywAPI = YandexWeatherAPI()
-        data = DataFetchingTask(cities=cities, wheather_api=ywAPI)
+        yw_api = YandexWeatherAPI()
+        data = DataFetchingTask(cities=cities, wheather_api=yw_api)
         return data.get_data()
     return wrapper
 
@@ -43,7 +43,7 @@ def agregate_data():
         data = CityForecastModel(city='MOSCOW', forecasts=wheather_data)
         queue = multiprocessing.Queue()
         producer = DataCalculationTask(queue=queue, good_condition=GOOD_CONDITION, wheather_data=[data])
-        consumer = DataAggregationTask(queue=queue, filepath='tests\\test.xlsx')  # for Linux 'tests/test.json'
+        consumer = DataAggregationTask(queue=queue, filepath='tests\\test.csv')  # for Linux 'tests/test.csv'
         producer.start()
         consumer.start()
         producer.join()
@@ -54,7 +54,7 @@ def agregate_data():
 @pytest.fixture
 def analyz_data():
     def wrapper():
-        analyz = DataAnalyzingTask(filepath='tests\\test.xlsx')  # for Linux 'tests/test.json'
+        analyz = DataAnalyzingTask(filepath='tests\\test.csv')  # for Linux 'tests/test.csv'
         recomendation = analyz.make_analyz()
         return recomendation
     return wrapper

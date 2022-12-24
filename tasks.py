@@ -1,13 +1,13 @@
+import csv
 from multiprocessing import Process, Queue
 from typing import Iterable
 from concurrent.futures import ThreadPoolExecutor
 
-import pandas as pd
 from pydantic import parse_obj_as, ValidationError
 
 from config import logging
 from api_client import YandexWeatherAPI
-from utils import MAX_WKRS, MSG_RCMND_CITIES
+from utils import MSG_RCMND_CITIES, START_TIME, END_TIME, FINISH
 from models import (
     WheatherForecastModel,
     CityForecastModel,
@@ -27,7 +27,7 @@ class DataFetchingTask:
 
     def _run(self) -> Iterable:
         logger.info('DataFetching started')
-        with ThreadPoolExecutor(max_workers=MAX_WKRS) as pool:
+        with ThreadPoolExecutor() as pool:
             data = pool.map(self.wheather_api.get_forecasting, self.cities)
         logger.info('DataFetching completed')
         return data
@@ -56,7 +56,7 @@ class DataCalculationTask(Process):
 
     def _calc_average_temp(self, data: WheatherDateModel) -> float | None:
         hours = data.hours
-        temperatures = [x.temp for x in hours if int(x.hour) > 8 and int(x.hour) < 20]
+        temperatures = [x.temp for x in hours if int(x.hour) >= START_TIME and int(x.hour) <= END_TIME]
         if not len(temperatures):
             return None
         avg_temp = round((sum(temperatures) / len(temperatures)), 1)
@@ -65,8 +65,8 @@ class DataCalculationTask(Process):
     def _calc_good_cond_hours(self, data: WheatherDateModel) -> int:
         hours = data.hours
         sum_good_hours = sum([1 for x in hours if all((self._check_condition(x.condition),
-                                                      int(x.hour) > 8,
-                                                      int(x.hour) < 20)
+                                                      int(x.hour) >= START_TIME,
+                                                      int(x.hour) <= END_TIME)
                                                       )])
         return sum_good_hours
 
@@ -88,6 +88,7 @@ class DataCalculationTask(Process):
         for data in self.weather_data:
             item = self._prepare_data(data)
             self.queue.put(item)
+        self.queue.put(FINISH)
 
 
 class DataAggregationTask(Process):
@@ -110,15 +111,14 @@ class DataAggregationTask(Process):
 
     def run(self) -> None:
         logger.info('Process - Agregation Data started')
-        while True:
-            if self.queue.empty():
-                logger.info('Queue is empty')
-                pd.DataFrame.from_dict(self.df_list).to_excel(self.filepath, index=False)  # type: ignore
-                break
-            else:
-                data = self.queue.get()
-                item = self._agregate_data(data)
-                self.df_list.append(item)
+        while data := self.queue.get():
+            item = self._agregate_data(data)
+            self.df_list.append(item)
+        logger.info('All tasks done')
+        with open(self.filepath, 'w') as file:
+            writer = csv.DictWriter(file, delimiter=';', fieldnames=[*self.df_list[0]])
+            writer.writeheader()
+            writer.writerows(self.df_list)
 
 
 class DataAnalyzingTask:
@@ -126,13 +126,10 @@ class DataAnalyzingTask:
         self.filepath = filepath
 
     def _prepare_to_analyz(self) -> list[dict]:
-        try:
-            df = pd.read_excel(self.filepath, index_col=None)
-            data = df.to_dict(orient='records')
-            return data
-        except FileNotFoundError as err:
-            logger.error(err)
-            return [{}]
+        with open(self.filepath, 'r') as file:
+            reader = csv.DictReader(file, delimiter=';')
+            data = [d for d in reader]
+        return data
 
     def _calc_rating(self, item: dict) -> int:
         data = []
@@ -153,10 +150,10 @@ class DataAnalyzingTask:
         for d in data:
             r = self._calc_rating(d)
             result.append(d | {'Rating': r})
-        try:
-            pd.DataFrame.from_dict(result).to_excel(self.filepath, index=False)  # type: ignore
-        except PermissionError as err:
-            logger.error(err)
+        with open(self.filepath, 'w') as file:
+            writer = csv.DictWriter(file, delimiter=';', fieldnames=[*result[0]])
+            writer.writeheader()
+            writer.writerows(result)
 
         return result
 

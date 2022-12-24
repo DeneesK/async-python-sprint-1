@@ -30,15 +30,15 @@ def test_calc_data(calc_data):
 def test_agtegate_data(agregate_data):
     agregate_data()
 
-    file_exists = exists('tests\\test.xlsx')  # for Linux 'tests/test.json'
+    file_exists = exists('tests\\test.csv')  # for Linux 'tests/test.csv'
     assert file_exists
 
 
 def test_analyz(analyz_data):
     result = analyz_data()
 
-    file_exists = exists('tests\\test.xlsx')  # for Linux 'tests/test.json'
+    file_exists = exists('tests\\test.csv')  # for Linux 'tests/test.csv'
     assert file_exists
     assert result == '*****Recommended city/ies to visit "MOSCOW"*****'
 
-    os.remove('tests\\test.xlsx')
+    os.remove('tests\\test.csv')

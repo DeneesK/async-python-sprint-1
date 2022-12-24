@@ -31,7 +31,7 @@ ERR_MESSAGE_TEMPLATE = "Something wrong. Please contact with mentor."
 MIN_MAJOR_PYTHON_VER = 3
 MIN_MINOR_PYTHON_VER = 9
 
-FILEPATH = 'forecast_table.xlsx'
+FILEPATH = 'FORECAST_RESULT.csv'
 
 
 def check_python_version():
@@ -46,3 +46,8 @@ def check_python_version():
                 MIN_MAJOR_PYTHON_VER, MIN_MINOR_PYTHON_VER
             )
         )
+
+
+START_TIME = 9
+END_TIME = 19
+FINISH = None
