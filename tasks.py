@@ -106,7 +106,7 @@ class DataAggregationTask(Process):
             date = d.date
             avg_temp = d.avg_temp
             good_hours = d.good_hours
-            df[date] = f'{avg_temp}/{good_hours}'
+            df[date] = f'{avg_temp}|{good_hours}'
         return df
 
     def run(self) -> None:
@@ -136,7 +136,7 @@ class DataAnalyzingTask:
         for k in [*item]:
             if item[k][0].isalpha():
                 continue
-            data.extend(item[k].split('/'))
+            data.extend(item[k].split('|'))
         data = list(map(lambda n: float(n), data))
         try:
             return int(sum(data) / len(data))
