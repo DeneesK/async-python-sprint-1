@@ -3,8 +3,9 @@ from typing import Iterable
 from concurrent.futures import ThreadPoolExecutor
 
 import pandas as pd
-from pydantic import parse_obj_as
+from pydantic import parse_obj_as, ValidationError
 
+from config import logging
 from api_client import YandexWeatherAPI
 from utils import MAX_WKRS, MSG_RCMND_CITIES
 from models import (
@@ -16,22 +17,30 @@ from models import (
 )
 
 
+logger = logging.getLogger(__name__)
+
+
 class DataFetchingTask:
     def __init__(self, wheather_api: YandexWeatherAPI, cities: Iterable):
         self.wheather_api = wheather_api
         self.cities = cities
 
     def _run(self) -> Iterable:
+        logger.info('DataFetching started')
         with ThreadPoolExecutor(max_workers=MAX_WKRS) as pool:
             data = pool.map(self.wheather_api.get_forecasting, self.cities)
+        logger.info('DataFetching completed')
         return data
 
     def get_data(self) -> list[CityForecastModel]:
         resp = self._run()
-        result = [
-            (x[0], parse_obj_as(WheatherForecastModel, x[1]))
-            for x in resp
-        ]
+        result = []
+        for x in resp:
+            try:
+                result.append((x[0], parse_obj_as(WheatherForecastModel, x[1])))
+            except ValidationError as err:
+                logger.error(err)
+                continue
         return [CityForecastModel(city=x[0], forecasts=x[1]) for x in result]
 
 
@@ -75,16 +84,18 @@ class DataCalculationTask(Process):
         return CalculatedCityModel(city=data.city, dates=dates)
 
     def run(self) -> None:
+        logger.info('Process - Calculation Data started')
         for data in self.weather_data:
             item = self._prepare_data(data)
             self.queue.put(item)
 
 
 class DataAggregationTask(Process):
-    def __init__(self, queue: Queue):
+    def __init__(self, queue: Queue, filepath: str):
         super().__init__()
         self.queue = queue
         self.df_list = []
+        self.filepath = filepath
 
     def _agregate_data(self, data: CalculatedCityModel) -> dict:
         df = {}
@@ -98,9 +109,11 @@ class DataAggregationTask(Process):
         return df
 
     def run(self) -> None:
+        logger.info('Process - Agregation Data started')
         while True:
             if self.queue.empty():
-                pd.DataFrame.from_dict(self.df_list).to_excel('forecast_table.xlsx', index=False)  # type: ignore
+                logger.info('Queue is empty')
+                pd.DataFrame.from_dict(self.df_list).to_excel(self.filepath, index=False)  # type: ignore
                 break
             else:
                 data = self.queue.get()
@@ -109,13 +122,17 @@ class DataAggregationTask(Process):
 
 
 class DataAnalyzingTask:
-    def __init__(self, filepath):
+    def __init__(self, filepath: str):
         self.filepath = filepath
 
-    def _prepare_to_analyz(self):
-        df = pd.read_excel(self.filepath, index_col=None)
-        data = df.to_dict(orient='records')
-        return data
+    def _prepare_to_analyz(self) -> list[dict]:
+        try:
+            df = pd.read_excel(self.filepath, index_col=None)
+            data = df.to_dict(orient='records')
+            return data
+        except FileNotFoundError as err:
+            logger.error(err)
+            return [{}]
 
     def _calc_rating(self, item: dict) -> int:
         data = []
@@ -124,7 +141,11 @@ class DataAnalyzingTask:
                 continue
             data.extend(item[k].split('/'))
         data = list(map(lambda n: float(n), data))
-        return int(sum(data) / len(data))
+        try:
+            return int(sum(data) / len(data))
+        except ZeroDivisionError as err:
+            logger.error(err)
+            return 0
 
     def _add_raiting(self) -> list[dict]:
         result = []
@@ -132,12 +153,20 @@ class DataAnalyzingTask:
         for d in data:
             r = self._calc_rating(d)
             result.append(d | {'Rating': r})
-        pd.DataFrame.from_dict(result).to_excel('forecast_table.xlsx', index=False)  # type: ignore
+        try:
+            pd.DataFrame.from_dict(result).to_excel(self.filepath, index=False)  # type: ignore
+        except PermissionError as err:
+            logger.error(err)
+
         return result
 
-    def make_analyz(self) -> None:
+    def make_analyz(self) -> str:
+        logger.info('Analyzing data started')
         analyz = self._add_raiting()
         raitings = [int(item['Rating']) for item in analyz]
         max_raiting = max(raitings)
         cities = [item['City'] for item in analyz if item['Rating'] == max_raiting]
+
         print(MSG_RCMND_CITIES.format(*cities))
+
+        return MSG_RCMND_CITIES.format(*cities)

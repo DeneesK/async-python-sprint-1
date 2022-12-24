@@ -7,7 +7,7 @@ GOOD_CONDITION = {
     'clear', 'partly-cloudy', 'cloudy', 'overcast', 'drizzle'
 }
 
-MSG_RCMND_CITIES = 'Recommended city/ies to visit "{}"'
+MSG_RCMND_CITIES = '*****Recommended city/ies to visit "{}"*****'
 
 CITIES = {
     "MOSCOW": "https://code.s3.yandex.net/async-module/moscow-response.json",
@@ -30,6 +30,8 @@ ERR_MESSAGE_TEMPLATE = "Something wrong. Please contact with mentor."
 
 MIN_MAJOR_PYTHON_VER = 3
 MIN_MINOR_PYTHON_VER = 9
+
+FILEPATH = 'forecast_table.xlsx'
 
 
 def check_python_version():

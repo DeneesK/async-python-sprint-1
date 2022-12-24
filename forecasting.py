@@ -1,6 +1,7 @@
-# import logging
 import multiprocessing
+from multiprocessing import ProcessError
 
+from config import logging
 from api_client import YandexWeatherAPI
 from tasks import (
     DataFetchingTask,
@@ -8,27 +9,37 @@ from tasks import (
     DataAggregationTask,
     DataAnalyzingTask,
 )
-from utils import CITIES, GOOD_CONDITION
+from utils import CITIES, GOOD_CONDITION, FILEPATH
 
 
-def forecast_weather(queue: multiprocessing.Queue):
+logger = logging.getLogger(__name__)
+
+
+def forecast_weather():
     """
     Анализ погодных условий по городам
     """
+    logger.info('Forecast Wheather started')
     cities_names = CITIES.keys()
     ywAPI = YandexWeatherAPI()
     data_fetch = DataFetchingTask(ywAPI, cities_names)
     forecast_data = data_fetch.get_data()
-    producer = DataCalculationTask(queue=queue, good_condition=GOOD_CONDITION, wheather_data=forecast_data)
-    consumer = DataAggregationTask(queue=queue)
-    producer.start()
-    consumer.start()
-    producer.join()
-    consumer.join()
-    forecast_analyz = DataAnalyzingTask('forecast_table.xlsx')
+    queue = multiprocessing.Queue()
+    try:
+        producer = DataCalculationTask(queue=queue, good_condition=GOOD_CONDITION, wheather_data=forecast_data)
+        consumer = DataAggregationTask(queue=queue, filepath=FILEPATH)
+        producer.start()
+        consumer.start()
+        producer.join()
+        logger.info('Process - Calculation Data completed')
+        consumer.join()
+        logger.info('Process - Agregation Data completed')
+    except ProcessError as err:
+        logger.error(err)
+    forecast_analyz = DataAnalyzingTask(filepath=FILEPATH)
     forecast_analyz.make_analyz()
 
 
 if __name__ == "__main__":
-    queue = multiprocessing.Queue()
-    forecast_weather(queue)
+    forecast_weather()
+    logger.info('Forecast Wheather finished')
